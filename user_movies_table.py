@@ -4,7 +4,7 @@ from colorama import init, Fore, Style
 import pandas as pd
 
 init()
-class user_movie_table:
+class User_movie_table:
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.df = pd.DataFrame(columns=['name', 'rank', 'user_id'])
@@ -127,7 +127,7 @@ class user_movie_table:
 
 
     @classmethod
-    def are_similar(cls, cls1:'user_movie_table', cls2:'user_movie_table') -> bool:
+    def are_similar(cls, cls1:'User_movie_table', cls2:'User_movie_table') -> bool:
         """
         class method that checks if two tables are 'similar'
         'similar' == the delta between the average genre rank for each genre is less then 0.5
@@ -159,7 +159,7 @@ class user_movie_table:
         print recommendations from the second instance's table that weren't watched in the first instance's table
         only if both instances are similar
         """
-        if not user_movie_table.are_similar(cls1, cls2):
+        if not User_movie_table.are_similar(cls1, cls2):
             return
         # Step 1 - sort the movies in the second table by popularity
         sorted_df = cls2.df.sort_values(by="rank", ascending=False)
