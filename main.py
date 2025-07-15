@@ -1,26 +1,27 @@
 from typing import List, Dict, Tuple, Optional
+from colorama import init, Fore, Style
 import pandas as pd
 
-def get_movies() -> List[str]:
+def get_movies_from_user_from_user() -> List[str]:
     movies = []
-    movie_name = input("Please enter a movie name and enter quit to finish")
+    movie_name = input("Please enter a movie name and enter quit to finish: ")
     while movie_name != 'quit':
         movies.append(movie_name)
-        movie_name = input("Please enter a movie name and enter quit to finish")
+        movie_name = input("Please enter a movie name and enter quit to finish: ")
     return movies
 
-def rank_movies(movies: List[str]) -> Dict[str, int]:
+def rank_movies_with_user(movies: List[str]) -> Dict[str, int]:
     """
     Getting the ranks from the user, if gets invalid input sets it to be 5
-    :param movies:
-    :return:
     """
     print("We are going to rank all movies you inserted")
     ranked_movies = {}
     for movie in movies:
-        rank = (f"Enter you rank for the movie {movie} from 1-10: ")
+        rank = input(f"Enter you rank for the movie {movie} from 1-10: ")
         try:
             rank = int(rank)
+            if rank < 1 or rank > 10:
+                raise ValueError
         except ValueError:
             print("Invalid input. Sets rank to 5")
             rank = 5
@@ -28,7 +29,7 @@ def rank_movies(movies: List[str]) -> Dict[str, int]:
             ranked_movies[movie] = rank
     return ranked_movies
 
-def get_best_movie(
+def movies_data_frame_transformation(
         movies_df: Optional[pd.DataFrame] = None,
         movies_dict: Optional[Dict] = None):
     """
@@ -39,6 +40,46 @@ def get_best_movie(
         if movies_dict is None:
             raise TypeError
         else:
-            movies_df = pd.DataFrame(movies_dict)
+            return pd.DataFrame(list(movies_dict.items()), columns=['name', 'rank'])
+    else:
+        return movies_df
 
-    temp_df = movies_df.sort_values()
+def get_best_movie(
+        movies_df: Optional[pd.DataFrame] = None,
+        movies_dict: Optional[Dict] = None):
+    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    temp_df = movies_df.sort_values(by='rank', ascending=False)
+    return f"The best movie is {temp_df.iloc[0]['name']} with the rank of {temp_df.iloc[0]['rank']}"
+
+def get_worst_movie(
+        movies_df: Optional[pd.DataFrame] = None,
+        movies_dict: Optional[Dict] = None):
+    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    temp_df = movies_df.sort_values(by='rank', ascending=True)
+    return f"The worst movie is {temp_df.iloc[0]['name']} with the rank of {temp_df.iloc[0]['rank']}"
+
+def get_avg_ranking(
+        movies_df: Optional[pd.DataFrame] = None,
+        movies_dict: Optional[Dict] = None):
+    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    return f"The average rank of the movies is {movies_df['rank'].mean()}"
+
+
+def main():
+    # 1
+    movies_list = get_movies_from_user_from_user()
+    print("Movies List")
+    print(movies_list)
+    # 2
+    ranked_movies = rank_movies_with_user(movies_list)
+    # 3
+    best_movie = get_best_movie(movies_dict=ranked_movies)
+    worst_movie = get_worst_movie(movies_dict=ranked_movies)
+    avg_ranking = get_avg_ranking(movies_dict=ranked_movies)
+    print(Fore.GREEN + best_movie + Style.RESET_ALL)
+    print(Fore.RED + worst_movie + Style.RESET_ALL)
+    print(Fore.YELLOW + avg_ranking + Style.RESET_ALL)
+    # 4
+
+if __name__ == "__main__":
+    main()
