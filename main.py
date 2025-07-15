@@ -2,8 +2,8 @@ from typing import List, Dict, Tuple, Optional
 from colorama import init, Fore, Style
 import pandas as pd
 
+users_amount = 0
 init()
-
 
 def get_movies_from_user_from_user() -> List[str]:
     movies = []
@@ -53,19 +53,23 @@ def movies_data_frame_transformation(
     Prefer to get a DataFrame but creates it if there isn't
     Have to get a dataFrame or a dictionary
     """
+    global users_amount
     if movies_df is None:
         if movies_dict is None:
             raise TypeError
         else:
-            return pd.DataFrame(list(movies_dict.items()), columns=['name', 'rank'])
-    else:
-        return movies_df
+            movies_df = pd.DataFrame(list(movies_dict.items()), columns=['name', 'rank'])
+
+    movies_df['user_id'] = [users_amount for i in range(len(movies_df))]
+    users_amount += 1
+    return movies_df
 
 
 def get_best_movie(
         movies_df: Optional[pd.DataFrame] = None,
         movies_dict: Optional[Dict] = None):
-    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    if movies_df is None:
+        movies_df = movies_data_frame_transformation(movies_df, movies_dict)
     temp_df = movies_df.sort_values(by='rank', ascending=False)
     return f"The best movie is {temp_df.iloc[0]['name']} with the rank of {temp_df.iloc[0]['rank']}"
 
@@ -73,7 +77,8 @@ def get_best_movie(
 def get_worst_movie(
         movies_df: Optional[pd.DataFrame] = None,
         movies_dict: Optional[Dict] = None):
-    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    if movies_df is None:
+        movies_df = movies_data_frame_transformation(movies_df, movies_dict)
     temp_df = movies_df.sort_values(by='rank', ascending=True)
     return f"The worst movie is {temp_df.iloc[0]['name']} with the rank of {temp_df.iloc[0]['rank']}"
 
@@ -81,9 +86,41 @@ def get_worst_movie(
 def get_avg_ranking(
         movies_df: Optional[pd.DataFrame] = None,
         movies_dict: Optional[Dict] = None):
-    movies_df = movies_data_frame_transformation(movies_df, movies_dict)
+    if movies_df is None:
+        movies_df = movies_data_frame_transformation(movies_df, movies_dict)
     avg = round(movies_df['rank'].mean(), 2)
     return f"The average rank of the movies is {avg}"
+
+def get_movie_recommendation(movies_df: pd.DataFrame):
+    """
+    A recursive function that fetches from the user a genre and returns the
+    best movie available in that genre.
+    The user can keep asking for next recommendation as long as they want
+    :param movies_df: current movies DataFrame
+    """
+    genre = input("Please enter the genre you're interested in: ")
+    current_recommendation = None
+    try:
+        potential_movies = movies_df.loc[movies_df['genre'] == genre]
+        if potential_movies.empty:
+            raise IndexError
+    except IndexError:
+        print("We don't have any movies answering to this genre name.")
+    else:
+        potential_movies = potential_movies.sort_values(by='rank', ascending=False)
+        current_recommendation = potential_movies.iloc[0]
+        print(f"Our best movie from {genre} genre is {current_recommendation['name']}"
+              f" with the rank of {current_recommendation['rank']}")
+    finally:
+        another_recommendation = input("Enter 'exit' to finish "
+                                       "and any other input to proceed to next recommendation")
+        if another_recommendation == 'exit':
+            return
+        elif current_recommendation is not None:
+            new_movies_df = movies_df.drop(index=current_recommendation.index)
+            get_movie_recommendation(new_movies_df)
+        else:
+            get_movie_recommendation(movies_df)
 
 
 def main():
@@ -103,7 +140,8 @@ def main():
     print(Fore.YELLOW + avg_ranking + Style.RESET_ALL)
     # 4
     add_genres_with_user(movies_df)
-    
+    # 5
+    get_movie_recommendation(movies_df)
 
 if __name__ == "__main__":
     main()
