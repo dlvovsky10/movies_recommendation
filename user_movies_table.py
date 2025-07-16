@@ -1,85 +1,102 @@
 import json
+from enum import Enum, IntEnum
 from typing import List, Dict, Tuple, Optional
 from colorama import init, Fore, Style
 import pandas as pd
+from Handlers import CLIIOHandler
+
+class Columns(Enum):
+    Name = 'name'
+    Rank = 'rank'
+    Genre = 'genre'
+    User_ID = 'user_id'
+    JSON_USER_ID = 'user_id'
+    JSON_MOVIES_DATA = 'movies_data'
+
+
 
 init()
 class User_movie_table:
     def __init__(self, user_id: int):
         self.user_id = user_id
-        self.df = pd.DataFrame(columns=['name', 'rank', 'user_id'])
+        self.df = pd.DataFrame(columns=[Columns.Name.value, Columns.Rank.value, Columns.User_ID.value])
+        self.handler = CLIIOHandler()
 
 
     @classmethod
-    def create_from_json(cls, path: str):
+    def create_from_json(cls, path: str, handler: CLIIOHandler):
         try:
             with open(path, "r") as file:
                 data = json.load(file)
         except FileNotFoundError:
-            print("Invalid file path.")
+            handler.display_output("Invalid file path.")
             return None
         else:
-            instance = cls(data["user_id"])
-            instance.df = pd.DataFrame(data["movies_data"])
+            instance = cls(data[Columns.JSON_USER_ID.value])
+            instance.df = pd.DataFrame(data[Columns.JSON_MOVIES_DATA.value])
             return instance
 
 
     def _get_movie_rank(self, movie_name: str) -> str:
-        rank = input(f"Please enter you rank for the movie {movie_name} from 1-10: ")
+        rank = self.handler.get_user_input(f"Please enter you rank for the movie {movie_name} from 1-10: ")
         try:
             rank = int(rank)
             if rank < 1 or rank > 10:
                 raise ValueError
         except ValueError:
-            print("Invalid input. Sets rank to 5")
+            self.handler.display_output("Invalid input. Sets rank to 5")
             rank = 5
         finally:
             return rank
 
 
     def _get_movie_genre(self, movie_name: str) -> str:
-        genre = input(f"Please enter the genre of the movie {movie_name}: ")
+        genre = self.handler.get_user_input(f"Please enter the genre of the movie {movie_name}: ")
         return genre
 
 
     def add_movies_from_user(self):
-        movie_name = input("Please enter a movie name and enter quit to finish: ")
+        #move the movie name outside
+        movie_name = self.handler.get_user_input("Please enter a movie name and enter quit to finish: ")
         while movie_name != 'quit':
             rank = self._get_movie_rank(movie_name)
             genre = self._get_movie_genre(movie_name)
-            new_row_df = pd.DataFrame([{'name': movie_name, 'rank': rank, 'genre': genre, 'user_id': self.user_id}])
+            new_row_df = pd.DataFrame([{Columns.Name.value: movie_name, Columns.Rank.value: rank,
+                                        Columns.Genre.value: genre, Columns.User_ID.value: self.user_id}])
             self.df = pd.concat([self.df, new_row_df], ignore_index=True)
-            movie_name = input("Please enter a movie name and enter quit to finish: ")
+            movie_name = self.handler.get_user_input("Please enter a movie name and enter quit to finish: ")
 
 
     def get_best_movie(self) -> Tuple[str, int]:
-        temp_df = self.df.sort_values(by='rank', ascending=False)
-        return temp_df.iloc[0]['name'], temp_df.iloc[0]['rank']
+        temp_df = self.df.sort_values(by=Columns.Rank.value, ascending=False)
+        return temp_df.iloc[0][Columns.Name.value], temp_df.iloc[0][Columns.Rank.value]
 
 
     def get_worst_movie(self) -> Tuple[str, int]:
-        temp_df = self.df.sort_values(by='rank', ascending=True)
-        return temp_df.iloc[0]['name'], temp_df.iloc[0]['rank']
+        temp_df = self.df.sort_values(by=Columns.Rank.value, ascending=True)
+        return temp_df.iloc[0][Columns.Name.value], temp_df.iloc[0][Columns.Rank.value]
 
 
     def get_avg_ranking(self) -> Tuple[str, int]:
-        return round(self.df['rank'].mean(), 2)
+        return round(self.df[Columns.Rank.value].mean(), 2)
 
 
     def print_basic_stats(self) -> None:
+        # create print handler
         best_movie = self.get_best_movie()
+        # turn into constants
         best_movie_str = f"The best movie is {best_movie[0]} with the rank of {best_movie[1]}"
         worst_movie = self.get_worst_movie()
         worst_movie_str = f"The worst movie is {worst_movie[0]} with the rank of {worst_movie[1]}"
         avg_movie = self.get_avg_ranking()
         avg_movie_str = f"The average rank of the movies is {avg_movie}"
-        print(Fore.GREEN + best_movie_str + Style.RESET_ALL)
-        print(Fore.RED + worst_movie_str + Style.RESET_ALL)
-        print(Fore.YELLOW + avg_movie_str + Style.RESET_ALL)
+        self.handler.display_output(Fore.GREEN + best_movie_str + Style.RESET_ALL)
+        self.handler.display_output(Fore.RED + worst_movie_str + Style.RESET_ALL)
+        self.handler.display_output(Fore.YELLOW + avg_movie_str + Style.RESET_ALL)
 
 
     @classmethod
-    def _get_movie_recommendation(self, movies_df: pd.DataFrame) -> None:
+    def _get_movie_recommendation(cls, movies_df: pd.DataFrame, handler: CLIIOHandler) -> None:
         """
         A recursive function that fetches from the user a genre and returns the
         best movie available in that genre.
@@ -87,43 +104,44 @@ class User_movie_table:
         :param movies_df: current movies DataFrame
         """
         if movies_df.empty:
-            print("No more movies available for recommendations.")
+            handler.display_output("No more movies available for recommendations.")
             return
 
-        available_genres = movies_df['genre'].unique()
-        print(f"Available genres: {', '.join(available_genres)}")
+        available_genres = movies_df[Columns.Genre.value].unique()
+        handler.display_output(f"Available genres: {', '.join(available_genres)}")
 
-        genre = input("Please enter the genre you're interested in: ")
+        genre = handler.get_user_input("Please enter the genre you're interested in: ")
         current_recommendation = None
 
+        #Turn to regular if-else
         try:
-            potential_movies = movies_df.loc[movies_df['genre'] == genre]
+            potential_movies = movies_df.loc[movies_df[Columns.Genre.value] == genre]
             if potential_movies.empty:
                 raise IndexError
         except IndexError:
-            print("We don't have any movies answering to this genre name.")
+            handler.display_output("We don't have any movies answering to this genre name.")
         else:
-            potential_movies = potential_movies.sort_values(by='rank', ascending=False)
+            potential_movies = potential_movies.sort_values(by=Columns.Rank.value, ascending=False)
             current_recommendation = potential_movies.iloc[0]
-            print(f"Our best movie from {genre} genre is {current_recommendation['name']}"
-                  f" with the rank of {current_recommendation['rank']}")
+            handler.display_output(f"Our best movie from {genre} genre is {current_recommendation[Columns.Name.value]}"
+                  f" with the rank of {current_recommendation[Columns.Rank.value]}")
 
-        another_recommendation = input("Enter 'exit' to finish "
+        another_recommendation = handler.get_user_input("Enter 'exit' to finish "
                                        "and any other input to proceed to next recommendation: ")
         if another_recommendation == 'exit':
             return
         elif current_recommendation is not None:
             new_movies_df = movies_df.drop(current_recommendation.name)  # Fixed: use .name instead of .index
-            self._get_movie_recommendation(new_movies_df)
+            cls._get_movie_recommendation(new_movies_df)
         else:
-            self._get_movie_recommendation(movies_df)
+            cls._get_movie_recommendation(movies_df)
 
 
     def get_movie_recommendation(self) -> None:
         if self.df.empty:
-            print("No movies available for recommendations. Please add some movies first.")
+            self.handler.display_output("No movies available for recommendations. Please add some movies first.")
             return
-        return self._get_movie_recommendation(self.df.copy())  # Use copy to avoid modifying original
+        return self._get_movie_recommendation(self.df.copy(), CLIIOHandler())  # Use copy to avoid modifying original
 
 
     @classmethod
@@ -136,9 +154,9 @@ class User_movie_table:
         :return: True if similar, False otherwise
         """
         # Step 1 - Create the genre vector for each table (pd series)
-        first_genres_vector = cls1.df.groupby('genre')['rank'].mean()
+        first_genres_vector = cls1.df.groupby(Columns.Genre.value)[Columns.Rank.value].mean()
         first_genres = list(first_genres_vector.index)
-        second_genres_vector = cls2.df.groupby('genre')['rank'].mean()
+        second_genres_vector = cls2.df.groupby(Columns.Genre.value)[Columns.Rank.value].mean()
         second_genres = list(second_genres_vector.index)
         # Step 2 - Check similarity
         if set(first_genres) != set(second_genres):
@@ -154,7 +172,7 @@ class User_movie_table:
 
 
     @classmethod
-    def movies_recommendations_based_on_similarity(cls, cls1, cls2) -> None:
+    def movies_recommendations_based_on_similarity(cls, cls1, cls2, handler: CLIIOHandler) -> None:
         """
         print recommendations from the second instance's table that weren't watched in the first instance's table
         only if both instances are similar
@@ -162,28 +180,28 @@ class User_movie_table:
         if not User_movie_table.are_similar(cls1, cls2):
             return
         # Step 1 - sort the movies in the second table by popularity
-        sorted_df = cls2.df.sort_values(by="rank", ascending=False)
+        sorted_df = cls2.df.sort_values(by=Columns.Rank.value, ascending=False)
         # Step 2 - iterate through the sorted movies and collect all movie names with rank above 8
         #           that are not exist in the first table, and top amount of 5 recommendations
         recommendations = 0
         recommendations_list = []
         for index, row in sorted_df.iterrows():
-            if row['name'] not in cls1.df['name'].values and row['rank'] > 8:
+            if row[Columns.Name.value] not in cls1.df[Columns.Name.value].values and row[Columns.Rank.value] > 8:
                 recommendations += 1
-                recommendations_list.append(row['name'])
+                recommendations_list.append(row[Columns.Name.value])
             if recommendations == 5:
                 break
         # Step 3 - Print the recommendations
         if recommendations == 0:
-            print("There are no recommendations.")
+            handler.display_output("There are no recommendations.")
         else:
-            print("Here are some recommendations for movies you may like: ")
+            handler.display_output("Here are some recommendations for movies you may like: ")
             for title in recommendations_list:
-                print(title)
+                handler.display_output(title)
 
     def to_json(self):
-        dict1 = {"user_id": self.user_id,
-                 "movies_data": self.df.to_dict(orient="records")}
+        dict1 = {Columns.User_ID.value: self.user_id,
+                 Columns.JSON_MOVIES_DATA.value: self.df.to_dict(orient="records")}
         with open(f"user_{self.user_id}_data", "w") as file:
             json.dump(dict1, file, indent=2)
 
