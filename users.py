@@ -1,9 +1,8 @@
 from typing import List, Dict, Tuple, Optional
-import config
 from user_movies_table import User_movie_table
 import re
 import bcrypt
-from Handlers import CLIIOHandler
+from Handlers import BaseIOHandler, CLIIOHandler
 
 
 class Authentication:
@@ -41,31 +40,28 @@ class Authentication:
 
 
 class User:
-    def __init__(self, user_name, password=None, handler=None):
+    def __init__(self, user_name:str, user_id:int, password=None, handler=None):
         self.user_name = user_name
         self.password = self.generate_password(password, handler)
-        self.id = config.global_users_amount
+        self.id = user_id
         self.movies_table = User_movie_table(self.id)
-        config.global_users_amount += 1
 
     @classmethod
-    def create_from_user_input(cls, handler: CLIIOHandler):
+    def create_from_user_input(cls, user_id: int, handler: BaseIOHandler):
         user_name = handler.get_user_input("Please enter you user name: ")
-        return cls(user_name, handler=handler)
+        return cls(user_name, user_id, handler=handler)
 
     def generate_password(self, password=None, handler=None):
-        """
-        Generates password for the user by using the argument/asking for it and then hashing it
-        :param password: Optional password
-        :param handler: Optional handler for input/output
-        :return: hashed password
-        """
         if password is None:
             if handler is None:
                 handler = CLIIOHandler()
             password = Authentication.get_valid_password(handler)
         return Authentication.hash_password(password)
 
-
-
-
+    def change_password(self, handler: BaseIOHandler):
+        current_password_guess = handler.get_user_input("Please enter your current password: ")
+        if Authentication.check_password(current_password_guess, self.password):
+            self.password = self.generate_password(handler=handler)
+            handler.display_output("Password changed successfully.")
+        else:
+            handler.display_output("Invalid password.")
